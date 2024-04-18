@@ -1,3 +1,5 @@
+package me.bilousov.httpserver.server;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -8,7 +10,7 @@ import java.text.MessageFormat;
 import java.util.Arrays;
 import java.util.List;
 
-public class Main {
+public class HttpServer {
 
     private static String HTTP_RESPONSE_PATTERN = "HTTP/1.1 {0}\r\n\r\n";
 
@@ -17,8 +19,7 @@ public class Main {
 
     private static String REQUEST_START_LINE_DIVIDER = " ";
 
-
-    public static void main(String[] args) {
+    public void start() {
         // You can use print statements as follows for debugging, they'll be visible when running tests.
         System.out.println("Logs from your program will appear here!");
 
@@ -50,7 +51,7 @@ public class Main {
         }
     }
 
-    private static String getRequestPath(String requestStartLine) {
+    private String getRequestPath(String requestStartLine) {
         final List<String> startLineParts = Arrays.asList(requestStartLine.split(REQUEST_START_LINE_DIVIDER));
 
         // Start line format -> "GET /index.html HTTP/1.1"
