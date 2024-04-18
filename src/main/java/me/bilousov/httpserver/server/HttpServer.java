@@ -9,26 +9,29 @@ import java.net.Socket;
 import java.text.MessageFormat;
 import java.util.Arrays;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class HttpServer {
 
-    private static String HTTP_RESPONSE_PATTERN = "HTTP/1.1 {0}\r\n\r\n";
+    private static final int DEFAULT_PORT = 4221;
 
-    private static String HTTP_MESSAGE_OK = "200 OK";
-    private static String HTTP_MESSAGE_NOT_FOUND = "404 Not Found";
+    private static final String HTTP_RESPONSE_PATTERN = "HTTP/1.1 {0}";
+    private static final String ECHO_REQUEST_PATTERN = "^/echo/(.*)$";
 
-    private static String REQUEST_START_LINE_DIVIDER = " ";
+    private static final String HTTP_MESSAGE_OK = "200 OK";
+    private static final String HTTP_MESSAGE_NOT_FOUND = "404 Not Found";
+
+    private static final String REQUEST_START_LINE_DIVIDER = " ";
+    private static final String CRLF = "\r\n";
 
     public void start() {
-        // You can use print statements as follows for debugging, they'll be visible when running tests.
-        System.out.println("Logs from your program will appear here!");
-
         Socket clientSocket = null;
 
         PrintWriter out;
         BufferedReader in;
 
-        try (ServerSocket serverSocket = new ServerSocket(4221)) {
+        try (ServerSocket serverSocket = new ServerSocket(DEFAULT_PORT)) {
             serverSocket.setReuseAddress(true);
             clientSocket = serverSocket.accept();
 
@@ -38,16 +41,34 @@ public class HttpServer {
             out = new PrintWriter(clientSocket.getOutputStream(), true);
 
             String requestStartLine = in.readLine();
+            String response = constructResponse(requestStartLine);
 
-            if (getRequestPath(requestStartLine).equals("/")) {
-                out.println(MessageFormat.format(HTTP_RESPONSE_PATTERN, HTTP_MESSAGE_OK));
-            } else {
-                out.println(MessageFormat.format(HTTP_RESPONSE_PATTERN, HTTP_MESSAGE_NOT_FOUND));
-            }
+            out.println(response);
 
             System.out.println("Closing connection...");
         } catch (IOException e) {
             System.out.println("IOException: " + e.getMessage());
+        }
+    }
+
+    private String constructResponse(String requestStartLine) {
+        final String requestPath = getRequestPath(requestStartLine);
+
+        final Pattern echoPattern = Pattern.compile(ECHO_REQUEST_PATTERN);
+        final Matcher echoMatcher = echoPattern.matcher(requestPath);
+
+        if (echoMatcher.matches()) {
+            final String body = echoMatcher.group(1);
+
+            return MessageFormat.format(HTTP_RESPONSE_PATTERN, HTTP_MESSAGE_OK) + CRLF +
+                    "Content-Type: text/plain" + CRLF +
+                    "Content-Length: " + body.length() + CRLF +
+                    CRLF +
+                    body + CRLF;
+        } else if (requestPath.equals("/")) {
+            return MessageFormat.format(HTTP_RESPONSE_PATTERN, HTTP_MESSAGE_OK) + CRLF + CRLF;
+        } else {
+            return MessageFormat.format(HTTP_RESPONSE_PATTERN, HTTP_MESSAGE_NOT_FOUND) + CRLF + CRLF;
         }
     }
 
