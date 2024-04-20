@@ -17,7 +17,7 @@ and more.
 # Passing the first stage
 
 The entry point for your HTTP server implementation is in
-`src/main/java/me.bilousov.httpserver.Main.java`. Study and uncomment the relevant code, and push your
+`src/main/java/Main.java`. Study and uncomment the relevant code, and push your
 changes to pass the first stage:
 
 ```sh
