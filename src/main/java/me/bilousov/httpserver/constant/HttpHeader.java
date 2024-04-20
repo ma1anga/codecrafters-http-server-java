@@ -1,4 +1,4 @@
-package me.bilousov.httpserver.model;
+package me.bilousov.httpserver.constant;
 
 public class HttpHeader {
 
