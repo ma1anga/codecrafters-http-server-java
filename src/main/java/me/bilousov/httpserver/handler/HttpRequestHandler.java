@@ -3,11 +3,10 @@ package me.bilousov.httpserver.handler;
 import me.bilousov.httpserver.constant.HttpHeader;
 import me.bilousov.httpserver.model.HttpHeaders;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
+import java.io.*;
 import java.net.Socket;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.text.MessageFormat;
 import java.util.Arrays;
 import java.util.List;
@@ -20,6 +19,7 @@ public class HttpRequestHandler extends Thread {
     private static final String HTTP_RESPONSE_PATTERN = "HTTP/1.1 {0}";
     private static final String ECHO_REQUEST_PATTERN = "^/echo/(.*)$";
     private static final String USER_AGENT_REQUEST_PATTERN = "^/user-agent$";
+    private static final String FILES_AGENT_REQUEST_PATTERN = "^/files/(.*)$";
 
     private static final String HTTP_MESSAGE_OK = "200 OK";
     private static final String HTTP_MESSAGE_NOT_FOUND = "404 Not Found";
@@ -29,10 +29,12 @@ public class HttpRequestHandler extends Thread {
     private static final String CRLF = "\r\n";
 
     private final Socket clientSocket;
+    private final Path workingDirPath;
 
 
-    public HttpRequestHandler(Socket clientSocket) {
+    public HttpRequestHandler(Socket clientSocket, Path workingDirPath) {
         this.clientSocket = clientSocket;
+        this.workingDirPath = workingDirPath;
     }
 
     @Override
@@ -84,9 +86,11 @@ public class HttpRequestHandler extends Thread {
 
         final Pattern echoPattern = Pattern.compile(ECHO_REQUEST_PATTERN);
         final Pattern userAgentPattern = Pattern.compile(USER_AGENT_REQUEST_PATTERN);
+        final Pattern filesPattern = Pattern.compile(FILES_AGENT_REQUEST_PATTERN);
 
         final Matcher echoMatcher = echoPattern.matcher(requestPath);
         final Matcher userAgentMatcher = userAgentPattern.matcher(requestPath);
+        final Matcher filesMatcher = filesPattern.matcher(requestPath);
 
         if (echoMatcher.matches()) {
             final String body = echoMatcher.group(1);
@@ -104,6 +108,24 @@ public class HttpRequestHandler extends Thread {
                     "Content-Length: " + body.length() + CRLF +
                     CRLF +
                     body + CRLF;
+        } else if (filesMatcher.matches()) {
+            final String fileName = filesMatcher.group(1);
+            final Path fullFilePath = workingDirPath.resolve(fileName);
+
+            try {
+                final String fileContent = getFileContent(fullFilePath);
+
+                return MessageFormat.format(HTTP_RESPONSE_PATTERN, HTTP_MESSAGE_OK) + CRLF +
+                        "Content-Type: application/octet-stream" + CRLF +
+                        "Content-Length: " + fileContent.length() + CRLF +
+                        CRLF +
+                        fileContent + CRLF;
+            } catch (IOException e) {
+                System.out.println("Error reading file: " + fullFilePath);
+                e.printStackTrace();
+
+                return MessageFormat.format(HTTP_RESPONSE_PATTERN, HTTP_MESSAGE_NOT_FOUND) + CRLF + CRLF;
+            }
         } else if (requestPath.equals("/")) {
             return MessageFormat.format(HTTP_RESPONSE_PATTERN, HTTP_MESSAGE_OK) + CRLF + CRLF;
         } else {
@@ -116,5 +138,9 @@ public class HttpRequestHandler extends Thread {
 
         // Start line format -> "GET /index.html HTTP/1.1"
         return startLineParts.get(1);
+    }
+
+    private String getFileContent(Path filePath) throws IOException {
+        return new String(Files.readAllBytes(filePath));
     }
 }
