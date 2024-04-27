@@ -1,7 +1,9 @@
 package me.bilousov.httpserver.handler;
 
 import me.bilousov.httpserver.constant.HttpHeader;
+import me.bilousov.httpserver.constant.HttpRequestMethod;
 import me.bilousov.httpserver.model.HttpHeaders;
+import me.bilousov.httpserver.util.ParseUtil;
 
 import java.io.*;
 import java.net.Socket;
@@ -14,6 +16,7 @@ import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+
 public class HttpRequestHandler extends Thread {
 
     private static final String HTTP_RESPONSE_PATTERN = "HTTP/1.1 {0}";
@@ -22,7 +25,9 @@ public class HttpRequestHandler extends Thread {
     private static final String FILES_AGENT_REQUEST_PATTERN = "^/files/(.*)$";
 
     private static final String HTTP_MESSAGE_OK = "200 OK";
+    private static final String HTTP_MESSAGE_OK_CREATED = "201 OK";
     private static final String HTTP_MESSAGE_NOT_FOUND = "404 Not Found";
+    private static final String HTTP_MESSAGE_BAD_REQUEST = "400 Bad Request";
 
     private static final String REQUEST_START_LINE_DIVIDER = " ";
     private static final String HTTP_HEADER_DIVIDER = ": ";
@@ -44,9 +49,11 @@ public class HttpRequestHandler extends Thread {
         try (BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
              PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true))
         {
-            String requestStartLine = in.readLine();
-            HttpHeaders httpRequestHeaders = parseRequestHttpHeaders(in);
-            String response = constructResponse(requestStartLine, httpRequestHeaders);
+            final String requestStartLine = in.readLine();
+            final HttpHeaders httpRequestHeaders = parseRequestHttpHeaders(in);
+            final String requestBody = parseRequestBody(in, httpRequestHeaders.get(HttpHeader.CONTENT_LENGTH));
+
+            String response = constructResponse(requestStartLine, httpRequestHeaders, requestBody);
             out.println(response);
 
             clientSocket.close();
@@ -64,7 +71,7 @@ public class HttpRequestHandler extends Thread {
         final HttpHeaders httpRequestHeaders = new HttpHeaders();
 
         while (reader.ready()) {
-            String line = reader.readLine();
+            final String line = reader.readLine();
 
             if(emptyOrCrlf(line)) {
                 break;
@@ -77,12 +84,25 @@ public class HttpRequestHandler extends Thread {
         return httpRequestHeaders;
     }
 
-    private boolean emptyOrCrlf(String line) {
-        return line == null || Objects.equals(line, "") || Objects.equals(line, CRLF);
+    private String parseRequestBody(BufferedReader reader, String contentLengthString) throws IOException {
+        int contentLength = ParseUtil.safeParseInt(contentLengthString);
+
+        final char[] buffer = new char[contentLength];
+        final int charsRead = reader.read(buffer, 0, buffer.length);
+
+        return new String(buffer, 0, charsRead);
     }
 
-    private String constructResponse(String requestStartLine, HttpHeaders requestHeaders) {
-        final String requestPath = getRequestPath(requestStartLine);
+    private boolean emptyOrCrlf(String line) {
+        return line == null
+                || Objects.equals(line, "")
+                || Objects.equals(line, CRLF);
+    }
+
+    private String constructResponse(String requestStartLine, HttpHeaders requestHeaders, String requestBody) {
+        final List<String> requestStartLineParts = getRequestStartLineParts(requestStartLine);
+        final String requestMethod = requestStartLineParts.get(0);
+        final String requestPath = requestStartLineParts.get(1);
 
         final Pattern echoPattern = Pattern.compile(ECHO_REQUEST_PATTERN);
         final Pattern userAgentPattern = Pattern.compile(USER_AGENT_REQUEST_PATTERN);
@@ -112,19 +132,32 @@ public class HttpRequestHandler extends Thread {
             final String fileName = filesMatcher.group(1);
             final Path fullFilePath = workingDirPath.resolve(fileName);
 
-            try {
-                final String fileContent = getFileContent(fullFilePath);
+            if (requestMethod.equals(HttpRequestMethod.POST)) {
+                try {
+                    Files.writeString(fullFilePath, requestBody);
 
-                return MessageFormat.format(HTTP_RESPONSE_PATTERN, HTTP_MESSAGE_OK) + CRLF +
-                        "Content-Type: application/octet-stream" + CRLF +
-                        "Content-Length: " + fileContent.length() + CRLF +
-                        CRLF +
-                        fileContent + CRLF;
-            } catch (IOException e) {
-                System.out.println("Error reading file: " + fullFilePath);
-                e.printStackTrace();
+                    return MessageFormat.format(HTTP_RESPONSE_PATTERN, HTTP_MESSAGE_OK_CREATED) + CRLF + CRLF;
+                } catch (IOException e) {
+                    System.out.println("Error writing file: " + fullFilePath);
+                    e.printStackTrace();
 
-                return MessageFormat.format(HTTP_RESPONSE_PATTERN, HTTP_MESSAGE_NOT_FOUND) + CRLF + CRLF;
+                    return MessageFormat.format(HTTP_RESPONSE_PATTERN, HTTP_MESSAGE_BAD_REQUEST) + CRLF + CRLF;
+                }
+            } else {
+                try {
+                    final String fileContent = getFileContent(fullFilePath);
+
+                    return MessageFormat.format(HTTP_RESPONSE_PATTERN, HTTP_MESSAGE_OK) + CRLF +
+                            "Content-Type: application/octet-stream" + CRLF +
+                            "Content-Length: " + fileContent.length() + CRLF +
+                            CRLF +
+                            fileContent + CRLF;
+                } catch (IOException e) {
+                    System.out.println("Error reading file: " + fullFilePath);
+                    e.printStackTrace();
+
+                    return MessageFormat.format(HTTP_RESPONSE_PATTERN, HTTP_MESSAGE_NOT_FOUND) + CRLF + CRLF;
+                }
             }
         } else if (requestPath.equals("/")) {
             return MessageFormat.format(HTTP_RESPONSE_PATTERN, HTTP_MESSAGE_OK) + CRLF + CRLF;
@@ -133,11 +166,8 @@ public class HttpRequestHandler extends Thread {
         }
     }
 
-    private String getRequestPath(String requestStartLine) {
-        final List<String> startLineParts = Arrays.asList(requestStartLine.split(REQUEST_START_LINE_DIVIDER));
-
-        // Start line format -> "GET /index.html HTTP/1.1"
-        return startLineParts.get(1);
+    private List<String> getRequestStartLineParts(String requestStartLine) {
+        return Arrays.asList(requestStartLine.split(REQUEST_START_LINE_DIVIDER));
     }
 
     private String getFileContent(Path filePath) throws IOException {
