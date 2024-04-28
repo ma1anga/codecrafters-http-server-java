@@ -1,4 +1,4 @@
-package me.bilousov.httpserver.dispatcher;
+package me.bilousov.httpserver.processor;
 
 import me.bilousov.httpserver.handler.HttpRequestHandler;
 import me.bilousov.httpserver.handler.impl.DefaultRequestHandler;

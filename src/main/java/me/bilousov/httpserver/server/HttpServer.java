@@ -1,6 +1,6 @@
 package me.bilousov.httpserver.server;
 
-import me.bilousov.httpserver.dispatcher.HttpRequestProcessor;
+import me.bilousov.httpserver.processor.HttpRequestProcessor;
 import me.bilousov.httpserver.handler.HttpRequestHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
