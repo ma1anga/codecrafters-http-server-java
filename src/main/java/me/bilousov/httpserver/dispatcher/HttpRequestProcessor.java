@@ -1,7 +1,9 @@
 package me.bilousov.httpserver.dispatcher;
 
 import me.bilousov.httpserver.handler.HttpRequestHandler;
+import me.bilousov.httpserver.handler.impl.DefaultRequestHandler;
 import me.bilousov.httpserver.model.HttpRequest;
+import me.bilousov.httpserver.model.HttpResponse;
 import me.bilousov.httpserver.parser.HttpRequestParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,17 +14,11 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.nio.file.Path;
-import java.text.MessageFormat;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static me.bilousov.httpserver.constant.Common.HTTP_MESSAGE_NOT_FOUND;
-import static me.bilousov.httpserver.constant.Common.HTTP_RESPONSE_PATTERN;
-
 public class HttpRequestProcessor extends Thread {
-
-    private static final String CRLF = "\r\n";
 
     private static final Logger log = LoggerFactory.getLogger(HttpRequestProcessor.class);
 
@@ -49,8 +45,8 @@ public class HttpRequestProcessor extends Thread {
              clientSocket
         ) {
             final HttpRequest httpRequest = httpRequestParser.parseHttpRequest(in);
-            final String response = processHttpRequest(httpRequest);
-            out.println(response);
+            final HttpResponse response = processHttpRequest(httpRequest);
+            out.println(response.toStringHttpResponse());
 
             log.info("Closing connection. Socket: {}", clientSocket);
         } catch (IOException exception) {
@@ -60,7 +56,7 @@ public class HttpRequestProcessor extends Thread {
         }
     }
 
-    public String processHttpRequest(HttpRequest httpRequest) throws IOException {
+    public HttpResponse processHttpRequest(HttpRequest httpRequest) throws IOException {
         log.info("Dispatching request to proper handler");
 
         final String requestPath = httpRequest.getPath();
@@ -78,7 +74,8 @@ public class HttpRequestProcessor extends Thread {
             }
         }
 
-        log.warn("Handler was not found for request: {}", requestPath);
-        return MessageFormat.format(HTTP_RESPONSE_PATTERN, HTTP_MESSAGE_NOT_FOUND) + CRLF;
+        log.warn("Handler was not found for request: {}. Using default one", requestPath);
+        return new DefaultRequestHandler()
+                .handleHttpRequest(workingDirPath, null, httpRequest);
     }
 }

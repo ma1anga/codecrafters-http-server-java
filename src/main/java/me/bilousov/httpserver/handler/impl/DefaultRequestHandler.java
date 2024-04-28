@@ -7,15 +7,14 @@ import me.bilousov.httpserver.model.HttpResponse;
 import java.nio.file.Path;
 import java.util.regex.Matcher;
 
-import static me.bilousov.httpserver.constant.Common.HTTP_MESSAGE_OK;
+import static me.bilousov.httpserver.constant.Common.HTTP_MESSAGE_NOT_FOUND;
 
-public class EmptyRequestHandler extends HttpRequestHandler {
-
+public class DefaultRequestHandler extends HttpRequestHandler {
 
     @Override
     public HttpResponse handleHttpRequest(Path workingDirPath, Matcher requestPathMatcher, HttpRequest httpRequest) {
         return HttpResponse.builder()
-                .status(HTTP_MESSAGE_OK)
+                .status(HTTP_MESSAGE_NOT_FOUND)
                 .build();
     }
 }
