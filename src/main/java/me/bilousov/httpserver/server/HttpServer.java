@@ -1,6 +1,9 @@
 package me.bilousov.httpserver.server;
 
+import me.bilousov.httpserver.dispatcher.HttpRequestProcessor;
 import me.bilousov.httpserver.handler.HttpRequestHandler;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.ServerSocket;
@@ -8,26 +11,42 @@ import java.net.Socket;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
+import java.util.Map;
 import java.util.Objects;
 
 public class HttpServer {
 
-    private static final int DEFAULT_PORT = 4221;
+    private static final Logger log = LoggerFactory.getLogger(HttpServer.class);
 
-    public void start(String workingDirectory) {
-        final Path workingDirPath = getWorkingDirPath(workingDirectory);
+    private final Map<String, HttpRequestHandler> requestPathToHandlerMappings;
+    private final Path workingDirPath;
+    private final int port;
 
-        System.out.println("Starting with working directory: " + workingDirPath.toString());
 
-        try (final ServerSocket serverSocket = new ServerSocket(DEFAULT_PORT)) {
+    public HttpServer(Map<String, HttpRequestHandler> requestPathToHandlerMappings, String workingDirectory, int port) {
+        this.requestPathToHandlerMappings = requestPathToHandlerMappings;
+        this.workingDirPath = getWorkingDirPath(workingDirectory);
+        this.port = port;
+    }
+
+    public void start() {
+        log.info("Starting with working directory: {} on port: {}", workingDirPath, port);
+
+        try (final ServerSocket serverSocket = new ServerSocket(port)) {
             serverSocket.setReuseAddress(true);
 
+            //noinspection InfiniteLoopStatement
             while (true) {
-                Socket clientSocket = serverSocket.accept();
-                new HttpRequestHandler(clientSocket, workingDirPath).start();
+                final Socket clientSocket = serverSocket.accept();
+
+                new HttpRequestProcessor(
+                        clientSocket,
+                        workingDirPath,
+                        requestPathToHandlerMappings
+                ).start();
             }
         } catch (IOException exception) {
-            System.out.println("Error creating server socket: " + exception.getMessage());
+            log.error("Error creating server socket", exception);
         }
     }
 

@@ -1,4 +1,6 @@
 java_http.jar
+testfiles/*
+testfiles
 target/*
 target/
 .idea/
