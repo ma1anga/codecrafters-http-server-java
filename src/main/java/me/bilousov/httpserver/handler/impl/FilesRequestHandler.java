@@ -2,7 +2,7 @@ package me.bilousov.httpserver.handler.impl;
 
 import me.bilousov.httpserver.constant.HttpRequestMethod;
 import me.bilousov.httpserver.handler.HttpRequestHandler;
-import me.bilousov.httpserver.model.HttpHeaders;
+import me.bilousov.httpserver.model.HttpRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,13 +20,13 @@ public class FilesRequestHandler extends HttpRequestHandler {
 
 
     @Override
-    public String handleHttpRequest(Path workingDirPath, String requestMethod, Matcher requestPathMatcher, HttpHeaders requestHeaders, String requestBody) {
+    public String handleHttpRequest(Path workingDirPath, Matcher requestPathMatcher, HttpRequest httpRequest) {
         final String fileName = requestPathMatcher.group(1);
         final Path fullFilePath = workingDirPath.resolve(fileName);
 
-        if (requestMethod.equals(HttpRequestMethod.POST)) {
+        if (httpRequest.getMethod().equals(HttpRequestMethod.POST)) {
             try {
-                Files.writeString(fullFilePath, requestBody);
+                Files.writeString(fullFilePath, httpRequest.getBody());
 
                 return MessageFormat.format(HTTP_RESPONSE_PATTERN, HTTP_MESSAGE_OK_CREATED) + CRLF + CRLF;
             } catch (IOException exception) {

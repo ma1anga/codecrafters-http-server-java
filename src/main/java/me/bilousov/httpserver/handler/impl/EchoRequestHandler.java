@@ -1,7 +1,7 @@
 package me.bilousov.httpserver.handler.impl;
 
 import me.bilousov.httpserver.handler.HttpRequestHandler;
-import me.bilousov.httpserver.model.HttpHeaders;
+import me.bilousov.httpserver.model.HttpRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -17,7 +17,7 @@ public class EchoRequestHandler extends HttpRequestHandler {
 
 
     @Override
-    public String handleHttpRequest(Path workingDirPath, String requestMethod, Matcher requestPathMatcher, HttpHeaders requestHeaders, String requestBody) {
+    public String handleHttpRequest(Path workingDirPath, Matcher requestPathMatcher, HttpRequest httpRequest) {
         log.info("Start request handling");
 
         final String body = requestPathMatcher.group(1);
